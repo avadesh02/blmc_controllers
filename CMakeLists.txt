@@ -20,43 +20,16 @@ set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 # Search for dependencies. #
 ############################
 
-set(CATKIN_PKGS ${CATKIN_PKGS}
-    # MPI-IS dependencies
-    mpi_cmake_modules
-    pybind11_catkin
-)
-find_package(catkin REQUIRED COMPONENTS ${CATKIN_PKGS})
+#
+# Dependencies
+#
+find_package(pybind11 CONFIG REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(pinocchio REQUIRED)
 
-# catkin customised search macros.
-SET(BOOST_COMPONENTS
-      filesystem system thread program_options unit_test_framework python)
-search_for_python()
-search_for_boost()
-search_for_eigen()
-catkin_add_required_dependency("pinocchio >= 2.0")
-
-######################################################
-# define the include directory of all ${CATKIN_PKGS} #
-######################################################
-include_directories(
-  ${PROJECT_SOURCE_DIR}/include
-  ${catkin_INCLUDE_DIRS}
-)
-
-##########################################
-# export the package as a catkin package #
-##########################################
-set(library_list ${PROJECT_NAME})
-catkin_package(
-    LIBRARIES ${library_list}
-    # INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include}
-    CATKIN_DEPENDS ${CATKIN_PKGS}
-)
-
-##############################
-# manage python file install #
-##############################
-catkin_python_setup()
+#local depends
+find_package(mpi_cmake_modules REQUIRED)
+find_package(yaml_utils REQUIRED)
 
 ###########################
 # Create the main library #
@@ -65,25 +38,66 @@ catkin_python_setup()
 add_library(${PROJECT_NAME}
     src/impedance_controller.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} pinocchio::pinocchio)
+target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
+target_link_libraries(${PROJECT_NAME} yaml_utils::yaml_utils)
+
+# Includes. Add the include dependencies
+target_include_directories(
+  ${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                         $<INSTALL_INTERFACE:include>)
 
 ################################
-# python bindings with pybind11#
+# Install the package          #
 ################################
-pybind11_add_module(py_${PROJECT_NAME}
-    srcpy/${PROJECT_NAME}.cpp
-    srcpy/impedance_controller.cpp
-)
-target_link_libraries(
-    py_${PROJECT_NAME} PRIVATE ${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_PYTHON_LIBRARY})
-set_target_properties(py_${PROJECT_NAME} PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_PYTHON_DESTINATION}
-  OUTPUT_NAME ${PROJECT_NAME}
-)
-install(TARGETS py_${PROJECT_NAME} DESTINATION ${CATKIN_GLOBAL_PYTHON_DESTINATION})
 
+# command to install the library and binaries
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES
+  DESTINATION include
+)
+
+# we also need to install the header files
+install(DIRECTORY include/ DESTINATION include)
+
+# ################################
+# # python bindings with pybind11#
+# ################################
+# pybind11_add_module(py_${PROJECT_NAME} MODULE
+#     srcpy/${PROJECT_NAME}.cpp
+#     srcpy/impedance_controller.cpp
+# )
+
+# target_link_libraries(py_${PROJECT_NAME} PRIVATE pybind11::module)
+# target_link_libraries(py_${PROJECT_NAME} PRIVATE ${PROJECT_NAME})
+
+# # install the bindings
+get_python_install_dir(PYTHON_INSTALL_DIR)
+# install(TARGETS py_${PROJECT_NAME} DESTINATION ${PYTHON_INSTALL_DIR})
+
+################################
+# install python packages      #
+################################
+
+# install the python package too
+install(
+    DIRECTORY python/${PROJECT_NAME}
+    DESTINATION "${PYTHON_INSTALL_DIR}"
+    PATTERN "*.pyc" EXCLUDE
+    PATTERN "__pycache__" EXCLUDE
+  )
 
 ##########################
 # building documentation #
 ##########################
-add_sphinx_documentation()
+add_documentation()
+
+############################
+# create the cmake package #
+############################
+generate_cmake_package(INSTALL_EXPORT)
