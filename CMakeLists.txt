@@ -26,6 +26,7 @@ set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
+find_package(eiquadprog REQUIRED)
 
 #local depends
 find_package(mpi_cmake_modules REQUIRED)
@@ -38,9 +39,11 @@ find_package(yaml_utils REQUIRED)
 add_library(${PROJECT_NAME}
     src/impedance_controller.cpp
     src/centroidal_pd_controller.cpp
+    src/centroidal_force_qp_controller.cpp
 )
 target_link_libraries(${PROJECT_NAME} pinocchio::pinocchio)
 target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
+target_link_libraries(${PROJECT_NAME} eiquadprog::eiquadprog)
 target_link_libraries(${PROJECT_NAME} yaml_utils::yaml_utils)
 
 # Includes. Add the include dependencies
@@ -73,6 +76,7 @@ pybind11_add_module(py_${PROJECT_NAME} MODULE
     srcpy/${PROJECT_NAME}.cpp
     srcpy/impedance_controller.cpp
     srcpy/centroidal_pd_controller.cpp
+    srcpy/centroidal_force_qp_controller.cpp
 )
 
 
