@@ -8,7 +8,7 @@ project(blmc_controllers)
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
 endif()
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -W -Wextra")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -W -Wextra -fPIC")
 
 # ensuring path to libraries are set during install
 set(CMAKE_SKIP_BUILD_RPATH  FALSE)
@@ -37,6 +37,7 @@ find_package(yaml_utils REQUIRED)
 
 add_library(${PROJECT_NAME}
     src/impedance_controller.cpp
+    src/centroidal_pd_controller.cpp
 )
 target_link_libraries(${PROJECT_NAME} pinocchio::pinocchio)
 target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
@@ -68,17 +69,19 @@ install(DIRECTORY include/ DESTINATION include)
 # ################################
 # # python bindings with pybind11#
 # ################################
-# pybind11_add_module(py_${PROJECT_NAME} MODULE
-#     srcpy/${PROJECT_NAME}.cpp
-#     srcpy/impedance_controller.cpp
-# )
+pybind11_add_module(py_${PROJECT_NAME} MODULE
+    srcpy/${PROJECT_NAME}.cpp
+    srcpy/impedance_controller.cpp
+    srcpy/centroidal_pd_controller.cpp
+)
 
-# target_link_libraries(py_${PROJECT_NAME} PRIVATE pybind11::module)
-# target_link_libraries(py_${PROJECT_NAME} PRIVATE ${PROJECT_NAME})
+
+target_link_libraries(py_${PROJECT_NAME} PRIVATE pybind11::module)
+target_link_libraries(py_${PROJECT_NAME} PRIVATE ${PROJECT_NAME})
 
 # # install the bindings
 get_python_install_dir(PYTHON_INSTALL_DIR)
-# install(TARGETS py_${PROJECT_NAME} DESTINATION ${PYTHON_INSTALL_DIR})
+install(TARGETS py_${PROJECT_NAME} DESTINATION ${PYTHON_INSTALL_DIR})
 
 ################################
 # install python packages      #

@@ -11,7 +11,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
-#include <boost/python.hpp>
 
 namespace py = pybind11;
 
@@ -30,7 +29,7 @@ void bind_impedance_controller(py::module& module)
                 const std::string& end_frame_name)
              {
                  const pinocchio::Model& pinocchio_model =
-                    boost::python::extract<const pinocchio::Model&>(model.ptr());
+                    model.cast<const pinocchio::Model&>();
                  obj.initialize(pinocchio_model, root_frame_name, end_frame_name);
                  return ;
              })
@@ -45,14 +44,11 @@ void bind_impedance_controller(py::module& module)
                        py::object py_feed_forward_force)
                     {
                         const pinocchio::SE3& desired_end_frame_placement = 
-                            boost::python::extract<const pinocchio::SE3&>(
-                                py_desired_end_frame_placement.ptr());
+                            py_desired_end_frame_placement.cast<const pinocchio::SE3&>();
                         const pinocchio::Motion& desired_end_frame_velocity = 
-                            boost::python::extract<const pinocchio::Motion&>(
-                                py_desired_end_frame_velocity.ptr());
+                            py_desired_end_frame_velocity.cast<const pinocchio::Motion&>();
                         const pinocchio::Force& feed_forward_force = 
-                            boost::python::extract<const pinocchio::Force&>(
-                                py_feed_forward_force.ptr());
+                            py_feed_forward_force.cast<const pinocchio::Force&>();
                         obj.run(robot_configuration, robot_velocity,
                                 gain_proportional, gain_derivative,
                                 gain_feed_forward_force,
