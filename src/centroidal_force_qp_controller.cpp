@@ -15,7 +15,7 @@ namespace blmc_controllers
 {
 
 
-CentroidalForceQPController::CentroidalForceQPController() 
+CentroidalForceQPController::CentroidalForceQPController()
 {
 }
 
@@ -96,13 +96,13 @@ void CentroidalForceQPController::run(
     Eigen::Ref<const Vector6d> w_com,
     Eigen::Ref<const Eigen::VectorXd> relative_position_endeff,
     Eigen::Ref<const Eigen::VectorXd> cnt_array
-) 
+)
 {
     // Copy the linear part for the centroidal wrench equality.
     ce_new_ = ce_;
 
     // Setup cross product at the endeffectors.
-    for (int i = 0; i < nb_eff_; i++) 
+    for (int i = 0; i < nb_eff_; i++)
     {
         double x = relative_position_endeff(3 * i);
         double y = relative_position_endeff(3 * i + 1);
@@ -124,9 +124,9 @@ void CentroidalForceQPController::run(
     }
 
     // Solve the QP.
-    std::cout << "Solution result: ";
+    // std::cout << "Solution result: ";
     auto status = qp_.solve_quadprog(hess_, g0_, ce_new_, w_com, ci_, ci0_, sol_);
-    std::cout << status << std::endl;
+    // std::cout << status << std::endl;
     forces_ = sol_.head(3 * nb_eff_);
 }
 

@@ -27,10 +27,13 @@ find_package(pybind11 CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(eiquadprog REQUIRED)
+SET(BOOST_COMPONENTS system python)
+find_package(Boost REQUIRED)
 
 #local depends
 find_package(mpi_cmake_modules REQUIRED)
 find_package(yaml_utils REQUIRED)
+
 
 ###########################
 # Create the main library #
@@ -82,8 +85,9 @@ pybind11_add_module(py_${PROJECT_NAME} MODULE
 
 target_link_libraries(py_${PROJECT_NAME} PRIVATE pybind11::module)
 target_link_libraries(py_${PROJECT_NAME} PRIVATE ${PROJECT_NAME})
+target_link_libraries(py_${PROJECT_NAME} PRIVATE ${Boost_PYTHON_LIBRARY})
 
-# # install the bindings
+# install the bindings
 get_python_install_dir(PYTHON_INSTALL_DIR)
 install(TARGETS py_${PROJECT_NAME} DESTINATION ${PYTHON_INSTALL_DIR})
 
