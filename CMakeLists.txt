@@ -26,8 +26,13 @@ find_package(pybind11 CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(eiquadprog REQUIRED)
-SET(BOOST_COMPONENTS python)
-find_package(Boost REQUIRED)
+
+find_package(PythonLibs REQUIRED)
+# Extract major/minor python version
+string(REPLACE "." ";" VERSION_LIST ${PYTHONLIBS_VERSION_STRING})
+list(GET VERSION_LIST 0 PYTHONLIBS_VERSION_MAJOR)
+list(GET VERSION_LIST 1 PYTHONLIBS_VERSION_MINOR)
+find_package(Boost COMPONENTS python${PYTHONLIBS_VERSION_MAJOR}${PYTHONLIBS_VERSION_MINOR} REQUIRED)
 
 #local depends
 find_package(mpi_cmake_modules REQUIRED)
