@@ -1,20 +1,19 @@
 # BSD 3-clause
-# Copyright (c) 2020, New York University and Max Planck Gesellschaft
-cmake_minimum_required(VERSION 3.5.1)
+# Copyright (c) 2021, New York University and Max Planck Gesellschaft
+
+#
+# set up the project
+#
+cmake_minimum_required(VERSION 3.10.2)
 
 project(blmc_controllers)
 
-# required to use std::shared_ptr in code and to link the python bindings
-if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
-endif()
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -W -Wextra -fPIC")
+# specify the C++ 17 standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# ensuring path to libraries are set during install
-set(CMAKE_SKIP_BUILD_RPATH  FALSE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+# Some additionnal optimization for the code.
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funroll-loops -fPIC")
 
 ############################
 # Search for dependencies. #
@@ -27,7 +26,7 @@ find_package(pybind11 CONFIG REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(eiquadprog REQUIRED)
-SET(BOOST_COMPONENTS system python)
+SET(BOOST_COMPONENTS python)
 find_package(Boost REQUIRED)
 
 #local depends
@@ -39,7 +38,7 @@ find_package(yaml_utils REQUIRED)
 # Create the main library #
 ###########################
 
-add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME} SHARED
     src/impedance_controller.cpp
     src/centroidal_pd_controller.cpp
     src/centroidal_force_qp_controller.cpp
