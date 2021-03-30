@@ -11,6 +11,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
+
 #include <boost/python.hpp>
 
 namespace py = pybind11;
@@ -29,10 +30,12 @@ void bind_impedance_controller(py::module& module)
                 const std::string& root_frame_name,
                 const std::string& end_frame_name)
              {
-                 const pinocchio::Model& pinocchio_model =
+                // Need to use boost-python here as the python object was
+                // created in pinocchio using boost-python.
+                const pinocchio::Model& pinocchio_model =
                     boost::python::extract<const pinocchio::Model&>(model.ptr());
                  obj.initialize(pinocchio_model, root_frame_name, end_frame_name);
-                 return ;
+                 return;
              })
         .def("run", [](ImpedanceController& obj,
                        const Eigen::VectorXd& robot_configuration,
@@ -44,15 +47,14 @@ void bind_impedance_controller(py::module& module)
                        py::object py_desired_end_frame_velocity,
                        py::object py_feed_forward_force)
                     {
-                        const pinocchio::SE3& desired_end_frame_placement = 
-                            boost::python::extract<const pinocchio::SE3&>(
-                                py_desired_end_frame_placement.ptr());
-                        const pinocchio::Motion& desired_end_frame_velocity = 
-                            boost::python::extract<const pinocchio::Motion&>(
-                                py_desired_end_frame_velocity.ptr());
-                        const pinocchio::Force& feed_forward_force = 
-                            boost::python::extract<const pinocchio::Force&>(
-                                py_feed_forward_force.ptr());
+                        // Need to use boost-python here as the python object was
+                        // created in pinocchio using boost-python.
+                        const pinocchio::SE3& desired_end_frame_placement =
+                            boost::python::extract<const pinocchio::SE3&>(py_desired_end_frame_placement.ptr());
+                        const pinocchio::Motion& desired_end_frame_velocity =
+                            boost::python::extract<const pinocchio::Motion&>(py_desired_end_frame_velocity.ptr());
+                        const pinocchio::Force& feed_forward_force =
+                            boost::python::extract<const pinocchio::Force&>(py_feed_forward_force.ptr());
                         obj.run(robot_configuration, robot_velocity,
                                 gain_proportional, gain_derivative,
                                 gain_feed_forward_force,
