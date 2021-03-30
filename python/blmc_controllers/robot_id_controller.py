@@ -7,19 +7,19 @@ import pinocchio as pin
 
 from . robot_impedance_controller import RobotImpedanceController
 
-class InverseDynamicsController(RobotImpedanceController):
+class InverseDynamicsController():
 
-    def __init__(self, robot, config_file):
+    def __init__(self, robot, eff_arr):
         """
         Input:
             robot : robot object returned by pinocchio wrapper
-            config_file : file that describes the desired frames to create springs in
+            eff_arr : end effector name arr
         """
-        super().__init__(robot, config_file)
 
         self.pin_robot = robot.pin_robot
         self.nq = self.pin_robot.nq
         self.nv = self.pin_robot.nv
+        self.eff_arr = eff_arr
 
     def set_gains(self, kp, kd):
         """
@@ -55,10 +55,13 @@ class InverseDynamicsController(RobotImpedanceController):
         assert len(q) == self.nq
         
 
-        tau = self.compute_id_torques(des_q, des_v, des_a)[6:]
-        tau_gain = -self.kp*(np.subtract(q[7:], des_q[7:].T)) - self.kd*(np.subtract(dq[6:], des_v[6:].T))
-        fff_tau = self.return_joint_torques(q, dq, np.zeros(len(fff)), np.zeros(len(fff)),fff, fff, fff)
-        fff_tau = np.reshape(fff_tau, (self.nv-6,))
-        tau = np.add(tau, tau_gain).T
+        tau_id = self.compute_id_torques(des_q, des_v, des_a)
+        tau_eff = np.zeros(self.nv)
+        for j in range(len(self.eff_arr)):
+            J = pin.computeFrameJacobian(self.pin_robot.model, self.pin_robot.data, des_q,\
+                     self.pin_robot.model.getFrameId(self.eff_arr[j]), pin.LOCAL_WORLD_ALIGNED)
+            tau_eff += np.matmul(J.T, np.hstack((fff[j*3:(j+1)*3], np.zeros(3))))
 
-        return tau + fff_tau
+        tau = (tau_id - tau_eff)[6:]
+        tau_gain = -self.kp*(np.subtract(q[7:], des_q[7:].T)) - self.kd*(np.subtract(dq[6:], des_v[6:].T))
+        return tau + tau_gain.T

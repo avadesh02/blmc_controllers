@@ -16,8 +16,8 @@ from robot_properties_bolt.bolt_wrapper import BoltRobot, BoltConfig
 
 # Create a Pybullet simulation environment
 env = BulletEnvWithGround()
-solo = False
-bolt = True
+solo = True
+bolt = False
 # Create a robot instance. This initializes the simulator as well.
 if solo:
     robot = env.add_robot(Solo12Robot)
@@ -37,7 +37,7 @@ q0 = np.matrix(Solo12Config.initial_configuration).T
 dq0 = np.matrix(Solo12Config.initial_velocity).T
 robot.reset_state(q0, dq0)
 
-x_com = [0.0, 0.0, 0.18]
+x_com = [0.0, 0.0, 0.25]
 xd_com = [0.0, 0.0, 0.0]
 
 x_ori = [0., 0., 0., 1.]
@@ -64,7 +64,21 @@ for i in range(4000):
     # Step the simulator.
     env.step(sleep=True) # You can sleep here if you want to slow down the replay
     # Read the final state and forces after the stepping.
+    f_real = np.zeros(12)
+    rl_cnt, act_force = robot.get_force()
+    if len(rl_cnt) > 0:
+        for k  in range(len(rl_cnt)):
+            if rl_cnt[k] == robot.pin_robot.model.getFrameId("FL_FOOT") - 1:
+                f_real[0:3] = -act_force[k][0:3]
+            if rl_cnt[k] == robot.pin_robot.model.getFrameId("FR_FOOT") - 1:
+                f_real[3:6] = -act_force[k][0:3]
+            if rl_cnt[k] == robot.pin_robot.model.getFrameId("HL_FOOT") - 1:
+                f_real[6:9] = -act_force[k][0:3]
+            if rl_cnt[k] == robot.pin_robot.model.getFrameId("HR_FOOT") - 1:
+                f_real[9:12] = -act_force[k][0:3]
+    # print(rl_cnt)
     q, dq = robot.get_state()
+    print(dq[0:3],  np.sum(f_real[2::3]))
     # computing forces to be applied in the centroidal space
     w_com = robot_cent_ctrl.compute_com_wrench(q, dq, x_com, xd_com, x_ori, x_angvel)
     # distrubuting forces to the active end effectors

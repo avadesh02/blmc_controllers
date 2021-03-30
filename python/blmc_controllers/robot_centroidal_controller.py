@@ -27,7 +27,7 @@ class RobotCentroidalController:
         '''
 
         self.robot = robot
-        self.robot_mass = sum([i.mass for i in self.robot.pin_robot.model.inertias[1:]])
+        self.robot_mass = pin.computeTotalMass(robot.pin_robot.model)
         self.mu = mu # Friction coefficient
         self.kc = kc
         self.dc = dc
@@ -52,7 +52,8 @@ class RobotCentroidalController:
         m = self.robot_mass
         robot = self.robot
 
-        com = np.reshape(np.array(q[0:3]), (3,))
+        # com = np.reshape(np.array(q[0:3]), (3,))
+        com = pin.centerOfMass(robot.pin_robot.model, robot.pin_robot.data, q, dq)
         vcom = np.reshape(np.array(dq[0:3]), (3,))
         Ib = robot.pin_robot.mass(q)[3:6, 3:6]
 
@@ -75,7 +76,7 @@ class RobotCentroidalController:
         ])
 
         # adding weight
-        w_com[2] += m*9.81
+        # w_com[2] += m*9.81
 
         return w_com
 
@@ -93,7 +94,8 @@ class RobotCentroidalController:
         """
 
         robot = self.robot
-        com = np.reshape(np.array(q[0:3]), (3,))
+        # com = np.reshape(np.array(q[0:3]), (3,))
+        com = pin.centerOfMass(robot.pin_robot.model, robot.pin_robot.data, q, dq)
         r = [robot.pin_robot.data.oMf[i].translation - com for i in self.eff_ids]
 
         # Use the contact activation from the plan to determine which of the forces

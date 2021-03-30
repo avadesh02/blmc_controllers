@@ -4,6 +4,7 @@
 
 import numpy as np
 import time
+import pinocchio as pin
 
 from blmc_controllers.robot_id_controller import InverseDynamicsController
 from bullet_utils.env import BulletEnvWithGround
@@ -34,26 +35,18 @@ q0 = np.matrix(Solo12Config.initial_configuration).T
 dq0 = np.matrix(Solo12Config.initial_velocity).T
 robot.reset_state(q0, dq0)
 
-x_com = [0.0, 0.0, 0.18]
-xd_com = [0.0, 0.0, 0.0]
-
-x_ori = [0., 0., 0., 1.]
-x_angvel = [0., 0., 0.]
-cnt_array = robot.nb_ee*[1,]
-
 ## initialising controllers ############################
-
-config_file = RobotConfig.paths["imp_ctrl_yaml"]
-
-robot_ctrl = InverseDynamicsController(robot, config_file)
-robot_ctrl.set_gains(5.0, 0.5)
+eff_arr = ["FL_FOOT", "FR_FOOT", "HL_FOOT", "HR_FOOT"]
+robot_ctrl = InverseDynamicsController(robot, eff_arr)
+robot_ctrl.set_gains(5.0, 0.1)
 
 des_q = q0
 des_v = dq0
 des_a = dq0
+des_a[2] = -9.81
 
 F = np.zeros((3*robot.nb_ee, ))
-F[2::3] = 2.4*9.8/4.0
+F[2::3] = pin.computeTotalMass(robot.pin_robot.model)*9.81/4.0
 
 # # Run the simulator for 100 steps
 for i in range(4000):

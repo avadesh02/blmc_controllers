@@ -60,14 +60,26 @@ class RobotImpedanceController(ImpedanceController):
             f : feed forward forces
         '''
         tau = np.zeros(len(self.imp_ctrl_array)*3)
+        self.F_ = np.zeros(len(self.imp_ctrl_array)*3)
+
         for k in range(len(self.imp_ctrl_array)):
             s = slice(3*k, 3*(k+1))
             tau[s] = self.imp_ctrl_array[k].compute_impedance_torques(
                                     q,dq,
                                     kp[s],kd[s],x_des[s],
                                     xd_des[s],f[s])
+            self.F_[s] = self.imp_ctrl_array[k].F_
         
         return tau
+
+    def return_desired_forces(self):
+        """
+        This function returns the force total for all springs that is then computed
+        to torques
+        """
+    
+        return self.F_
+
 
     def return_joint_torques_world(self, q, dq, kp, kd, x_des, xd_des, f):
         '''
