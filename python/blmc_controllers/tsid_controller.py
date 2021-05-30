@@ -1,0 +1,134 @@
+## This file contains a TSID based Inverse Dynamics Controller
+## Author : Avadesh Meduri
+## Date : 16/03/2021
+
+import numpy as np
+import pinocchio as pin
+import tsid
+
+
+class TSID_controller():
+
+    def __init__(self, robot, model_path, model_path, eff_arr, mu=0.6, q0, v0):
+        """
+        Input:
+            robot : robot object returned by pinocchio wrapper
+            eff_arr : end effector name arr
+        """
+        self.kp_com = 10.0
+        self.kp_contact = 10.0
+        self.kp_posture = 1.0
+        self.kp_orientation = 100.0
+
+        self.w_com = 1.0
+        self.w_posture = 1e-3
+        self.w_force = 1e-5
+        self.w_orientation = 1.0
+
+        self.contact_transition = 0.01
+
+        self.pin_robot = robot.pin_robot
+        self.nq = self.pin_robot.nq
+        self.nv = self.pin_robot.nv
+        self.eff_arr = eff_arr
+        self.curr_cnt_array = np.zeros(self.eff_arr.size)
+
+        self.tsid_robot = tsid.RobotWrapper(urdf_path, [model_path], pin.JointModelFreeFlyer(), False)
+        self.tsid_model = self.tsid_robot.model()
+        self.invdyn = tsid.InverseDynamicsFormulationAccForce("tsid", self.tsid_robot, False)
+        self.qp_solver = tsid.SolverHQuadProgFast("qp_solver")
+
+        #Set up initial solve
+        self.invdyn.computeProblemData(0, q0, v0)
+        self.inv_dyn_data = invdyn.data()
+        self.pin_robot.computeAllTerms(self.inv_dyn_data, q0, v0)
+
+        self.mu = mu
+
+        # Add Contact Tasks (setup as equality constraints)
+        contactNormal = np.array([0., 0., 1.])
+        self.contact_arr = self.eff_arr.size*[None]
+        for i, name in enumerate(self.eff_arr):
+            self.contact_arr[i] = tsid.ContactPoint(name, self.tsid_robot, name, contactNormal, self.mu, 0.01, 15)
+            self.contact_arr[i].setKp(self.kp_contact * np.ones(3))
+            self.contact_arr[i].setKd(2.0 * np.sqrt(self.kp_contact) * np.ones(3))
+            cnt_ref = robot.framePosition(data, self.tsid_robot.model().getFrameId(name))
+            self.contact_arr[i].setReference(cnt_ref)
+            self.contact_arr[i].useLocalFrame(False)
+            self.invdyn.addRigidContact(self.contact_arr[i], self.w_force)
+
+        # Add CoM tasks (setup as equality constraint)
+        self.comTask = tsid.TaskComEquality("com_task", self.tsid_robot)
+        self.comTask.setKp(self.kp_com * np.ones(3))
+        self.comTask.setKd(2.0 * np.sqrt(self.kp_com) * np.ones(3))
+        self.invdyn.addMotionTask(self.comTask, self.w_com, 0, 0.0)
+
+        # Add posture tasks (in the cost function)
+        self.postureTask = tsid.TaskJointPosture("posture_task", self.tsid_robot)
+        self.postureTask.setKp(self.kp_posture * np.ones(self.tsid_robot.nv-6))
+        self.postureTask.setKd(2.0 * np.sqrt(self.kp_posture) * np.ones(3))
+        self.invdyn.addMotionTask(self.postureTask, self.w_posture, 1, 0.0)
+
+        #Add orientation task (in the cost function)
+        self.oriTask = tsid.TaskSE3Equality("orientation", self.tsid_robot, "base_link")
+        self.oriTask.setKp(self.kp_orientation * np.ones(6))
+        self.oriTask.setKd(2.0 * np.sqrt(self.kp_orientation) * np.ones(6))
+        mask = np.ones(6)
+        mask[:3] = 0
+        self.oriTask.setMask(mask)
+        self.invdyn.addMotionTask(self.oriTask, self.w_orientation, 1, 0.0)
+
+        #Setup trajectories (des_q, des_v, des_a)
+        self.com_ref = self.tsid_robot.com(data)
+        self.trajCom = self.tsid.TrajectoryEuclideanConstant("trajectory_com", com_ref)
+        self.com_reference = self.trajCom.computeNext()
+
+        self.trajPosture = self.tsid.TrajectoryEuclideanConstant("trajectory_posture", q0[7:])
+        self.traj_reference = self.trajPosture.computeNext()
+
+        self.ori_ref = self.tsid_robot.position(data, self.tsid_robot.model.getJointId("base_link"))
+        self.oriTraj = self.tsid.TrajectorySE3Constant("trajectory_orientation", )
+
+        self.qp_solver.resize(invdyn.nVar, ivndyn.nEq, invdyn.nIn)
+
+    def compute_id_torques(self, t, q, v, des_q, des_v, des_a, fff, des_cnt_array):
+        """
+        This function computes the input torques with gains
+        Input:
+            q : joint positions
+            v : joint velocity
+            des_q : desired joint positions
+            des_v : desired joint velocities
+            des_a : desired joint accelerations
+            fff : desired feed forward force
+            des_cnt_array: desired binary contact array (as given by simulator/real contact detector)
+        """
+        assert len(q) == self.nq
+        
+        #Update contacts of inverse dynamics array (i.e. which feet are and are not in contact):
+        #TODO: make this list searchable via names rather than assuming the correct order
+        for i in range(self.eff_arr):
+            if self.curr_cnt_array[i] != des_cnt_array[i]:
+                self.curr_cnt_array[i] = des_cnt_array[i].copy()
+                if des_cnt_array[i] == 0:
+                    self.invdyn.removeRigidContact(self.contact_arr[i].name, self.contact_transition)
+                else:
+                    self.invdyn.addRigidContact(self.contact_arr[i], self.w_force)
+
+        #Set desired references
+        self.com_reference.pos(des_q[0:3])
+        self.com_reference.vel(des_v[0:3])
+        self.com_reference.acc(des_a[0:3])
+
+        self.traj_reference.pos(des_q[7:])
+        self.traj_reference.vel(des_v[6:])
+        self.traj_reference.acc(des_a[6:])
+
+        self.comTask.setReference(self.com_reference)
+        self.postureTask.setReference(self.traj_reference)
+
+        #Solve
+        HQPData = self.invdyn.computeProblemData(t, q, v)
+        sol = self.qp_solver.solve(HQPData)
+        tau = self.invdyn.getActuatorForces(sol)
+        return tau

@@ -5,7 +5,7 @@
 import numpy as np
 import pinocchio as pin
 
-from . robot_impedance_controller import RobotImpedanceController
+#from . robot_impedance_controller import RobotImpedanceController
 
 class InverseDynamicsController():
 
