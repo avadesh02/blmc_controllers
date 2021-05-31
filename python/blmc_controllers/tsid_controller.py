@@ -9,7 +9,7 @@ import tsid
 
 class TSID_controller():
 
-    def __init__(self, robot, model_path, model_path, eff_arr, mu=0.6, q0, v0):
+    def __init__(self, robot, urdf_path, model_path, eff_arr, q0, v0, mu=0.6):
         """
         Input:
             robot : robot object returned by pinocchio wrapper
@@ -31,7 +31,7 @@ class TSID_controller():
         self.nq = self.pin_robot.nq
         self.nv = self.pin_robot.nv
         self.eff_arr = eff_arr
-        self.curr_cnt_array = np.zeros(self.eff_arr.size)
+        self.curr_cnt_array = np.zeros(len(self.eff_arr))
 
         self.tsid_robot = tsid.RobotWrapper(urdf_path, [model_path], pin.JointModelFreeFlyer(), False)
         self.tsid_model = self.tsid_robot.model()
@@ -40,19 +40,19 @@ class TSID_controller():
 
         #Set up initial solve
         self.invdyn.computeProblemData(0, q0, v0)
-        self.inv_dyn_data = invdyn.data()
-        self.pin_robot.computeAllTerms(self.inv_dyn_data, q0, v0)
+        self.inv_dyn_data = self.invdyn.data()
+        self.tsid_robot.computeAllTerms(self.inv_dyn_data, q0, v0)
 
         self.mu = mu
 
         # Add Contact Tasks (setup as equality constraints)
         contactNormal = np.array([0., 0., 1.])
-        self.contact_arr = self.eff_arr.size*[None]
+        self.contact_arr = len(self.eff_arr)*[None]
         for i, name in enumerate(self.eff_arr):
             self.contact_arr[i] = tsid.ContactPoint(name, self.tsid_robot, name, contactNormal, self.mu, 0.01, 15)
             self.contact_arr[i].setKp(self.kp_contact * np.ones(3))
             self.contact_arr[i].setKd(2.0 * np.sqrt(self.kp_contact) * np.ones(3))
-            cnt_ref = robot.framePosition(data, self.tsid_robot.model().getFrameId(name))
+            cnt_ref = self.tsid_robot.framePosition(self.inv_dyn_data, self.tsid_robot.model().getFrameId(name))
             self.contact_arr[i].setReference(cnt_ref)
             self.contact_arr[i].useLocalFrame(False)
             self.invdyn.addRigidContact(self.contact_arr[i], self.w_force)
@@ -79,17 +79,17 @@ class TSID_controller():
         self.invdyn.addMotionTask(self.oriTask, self.w_orientation, 1, 0.0)
 
         #Setup trajectories (des_q, des_v, des_a)
-        self.com_ref = self.tsid_robot.com(data)
-        self.trajCom = self.tsid.TrajectoryEuclideanConstant("trajectory_com", com_ref)
+        self.com_ref = self.tsid_robot.com(self.inv_dyn_data)
+        self.trajCom = tsid.TrajectoryEuclidianConstant("trajectory_com", self.com_ref)
         self.com_reference = self.trajCom.computeNext()
 
-        self.trajPosture = self.tsid.TrajectoryEuclideanConstant("trajectory_posture", q0[7:])
+        self.trajPosture = tsid.TrajectoryEuclidianConstant("trajectory_posture", q0[7:])
         self.traj_reference = self.trajPosture.computeNext()
 
-        self.ori_ref = self.tsid_robot.position(data, self.tsid_robot.model.getJointId("base_link"))
-        self.oriTraj = self.tsid.TrajectorySE3Constant("trajectory_orientation", )
+        self.ori_ref = self.tsid_robot.position(self.inv_dyn_data, self.tsid_robot.model().getJointId("base_link"))
+        self.oriTraj = tsid.TrajectorySE3Constant("trajectory_orientation", )
 
-        self.qp_solver.resize(invdyn.nVar, ivndyn.nEq, invdyn.nIn)
+        self.qp_solver.resize(self.invdyn.nVar, self.invdyn.nEq, self.invdyn.nIn)
 
     def compute_id_torques(self, t, q, v, des_q, des_v, des_a, fff, des_cnt_array):
         """
