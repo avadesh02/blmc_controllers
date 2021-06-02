@@ -53,7 +53,6 @@ class InverseDynamicsController():
             fff : desired feed forward force
         """
         assert len(q) == self.nq
-        
 
         tau_id = self.compute_id_torques(des_q, des_v, des_a)
         tau_eff = np.zeros(self.nv)
