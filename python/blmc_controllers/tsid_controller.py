@@ -138,8 +138,8 @@ class TSID_controller():
         # self.com_reference.vel(des_v[0:3])
         # self.com_reference.acc(des_a[0:3])
 
-        self.traj_reference.pos(des_q)
-        self.traj_reference.vel(des_v)
+        # self.traj_reference.pos(des_q)
+        # self.traj_reference.vel(des_v)
         self.traj_reference.acc(des_a)
 
         #Need to update end-effector references here
