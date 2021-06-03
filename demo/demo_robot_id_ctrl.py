@@ -38,7 +38,7 @@ robot.reset_state(q0, dq0)
 ## initialising controllers ############################
 eff_arr = ["FL_FOOT", "FR_FOOT", "HL_FOOT", "HR_FOOT"]
 robot_ctrl = InverseDynamicsController(robot, eff_arr)
-robot_ctrl.set_gains(5.0, 0.1)
+robot_ctrl.set_gains(5.0, 0.1, [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0])
 
 des_q = q0
 des_v = dq0
