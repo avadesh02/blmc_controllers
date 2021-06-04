@@ -25,8 +25,8 @@ class InverseDynamicsController():
         self.nv = self.pin_robot.nv
         self.eff_arr = eff_arr
 
-        self.wt = 1e+3
-        self.mu = 0.5
+        self.wt = 1e-6
+        self.mu = 0.8
 
     def set_gains(self, kp, kd, kc, dc, kb, db):
         """
@@ -74,7 +74,9 @@ class InverseDynamicsController():
 
         cur_angvel = arr(v[3:6])
         des_angvel = arr(des_v[3:6])
+        # des_angvel = np.zeros(3)
 
+        # quat_diff = self.quaternion_difference(arr(q[3:7]), arr(np.array([0,0,0,1])))
         quat_diff = self.quaternion_difference(arr(q[3:7]), arr(des_q[3:7]))
         
         w_com = np.hstack([
@@ -100,13 +102,12 @@ class InverseDynamicsController():
         self.J_arr = []
 
         w_com = self.compute_com_wrench(q, dq, des_q, des_v.copy())
-        print(w_com)
         tau_id = self.compute_id_torques(des_q, des_v, des_a)
 
         ## creating QP matrices
         N = int(len(self.eff_arr))
         Q = self.wt*np.eye(3*N + 6)
-        Q[-6:-3, -6:-3] *= 100
+        Q[-6:-3, -6:-3] *= 1e9
         p = np.zeros(3*N + 6)
         p[:3*N] = -2*self.wt*np.array(fff)
 
@@ -117,10 +118,11 @@ class InverseDynamicsController():
         for j in range(N):
             self.J_arr.append(pin.computeFrameJacobian(self.pin_robot.model, self.pin_robot.data, des_q,\
                      self.pin_robot.model.getFrameId(self.eff_arr[j]), pin.LOCAL_WORLD_ALIGNED).T)
-            if cnt_array[j] == 0:
+            # if cnt_array[j] == 0:
+            if fff[3*j+2] < 0.01:
                 continue
             A[:,3*j: 3*(j+1)] = self.J_arr[j].copy()[0:6,0:3]
-
+            
             G[5*j + 0, 3 * j + 0] = 1    # mu Fz - Fx >= 0
             G[5*j + 0, 3 * j + 2] = -self.mu
             G[5*j + 1, 3 * j + 0] = -1     # mu Fz + Fx >= 0
@@ -133,7 +135,6 @@ class InverseDynamicsController():
         A[:, -6:] = np.eye(6)
 
         b = tau_id[0:6] + w_com
-        # print(cnt_array)
         # print(tau_id[2], fff[2::3])
 
         solx = quadprog_solve_qp(Q, p, G, h, A, b)
@@ -143,7 +144,7 @@ class InverseDynamicsController():
 
         tau_eff = np.zeros(self.nv)
         for j in range(N):
-            tau_eff += np.matmul(self.J_arr[j], np.hstack((qp_fff[j*3:(j+1)*3], np.zeros(3))))
+            tau_eff += np.matmul(self.J_arr[j], np.hstack((fff[j*3:(j+1)*3], np.zeros(3))))
 
         tau = (tau_id - tau_eff)[6:]
 
