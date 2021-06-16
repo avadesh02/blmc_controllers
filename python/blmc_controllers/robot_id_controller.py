@@ -18,8 +18,8 @@ class InverseDynamicsController():
             robot : robot object returned by pinocchio wrapper
             eff_arr : end effector name arr
         """
-
         self.pin_robot = robot.pin_robot
+
         self.robot_mass = pin.computeTotalMass(self.pin_robot.model)
         self.nq = self.pin_robot.nq
         self.nv = self.pin_robot.nv
