@@ -12,14 +12,18 @@ mat = lambda a: np.matrix(a).reshape((-1, 1))
 
 class InverseDynamicsController():
 
-    def __init__(self, robot, eff_arr):
+    def __init__(self, robot, eff_arr, real_robot = False):
         """
         Input:
             robot : robot object returned by pinocchio wrapper
             eff_arr : end effector name arr
+            real_robot : bool true if controller running on real robot
         """
-        self.pin_robot = robot.pin_robot
 
+        if real_robot:
+            self.pin_robot = robot
+        else:
+            self.pin_robot = robot.pin_robot
         self.robot_mass = pin.computeTotalMass(self.pin_robot.model)
         self.nq = self.pin_robot.nq
         self.nv = self.pin_robot.nv
@@ -101,44 +105,45 @@ class InverseDynamicsController():
         assert len(q) == self.nq
         self.J_arr = []
 
-        w_com = self.compute_com_wrench(q, dq, des_q, des_v.copy())
+        # w_com = self.compute_com_wrench(q, dq, des_q, des_v.copy())
         tau_id = self.compute_id_torques(des_q, des_v, des_a)
 
         ## creating QP matrices
         N = int(len(self.eff_arr))
-        Q = self.wt*np.eye(3*N + 6)
-        Q[-6:-3, -6:-3] *= 1e9
-        p = np.zeros(3*N + 6)
-        p[:3*N] = -2*self.wt*np.array(fff)
 
-        G = np.zeros((5 * N, 3 * N + 6))
-        h = np.zeros((5 * N ))
+        # Q = self.wt*np.eye(3*N + 6)
+        # Q[-6:-3, -6:-3] *= 1e9
+        # p = np.zeros(3*N + 6)
+        # p[:3*N] = -2*self.wt*np.array(fff)
 
-        A = np.zeros((6, 3*N + 6))
+        # G = np.zeros((5 * N, 3 * N + 6))
+        # h = np.zeros((5 * N ))
+
+        # A = np.zeros((6, 3*N + 6))
         for j in range(N):
             self.J_arr.append(pin.computeFrameJacobian(self.pin_robot.model, self.pin_robot.data, des_q,\
                      self.pin_robot.model.getFrameId(self.eff_arr[j]), pin.LOCAL_WORLD_ALIGNED).T)
-            # if cnt_array[j] == 0:
-            if fff[3*j+2] < 0.01:
-                continue
-            A[:,3*j: 3*(j+1)] = self.J_arr[j].copy()[0:6,0:3]
+        #     # if cnt_array[j] == 0:
+        #     if fff[3*j+2] < 0.01:
+        #         continue
+        #     A[:,3*j: 3*(j+1)] = self.J_arr[j].copy()[0:6,0:3]
             
-            G[5*j + 0, 3 * j + 0] = 1    # mu Fz - Fx >= 0
-            G[5*j + 0, 3 * j + 2] = -self.mu
-            G[5*j + 1, 3 * j + 0] = -1     # mu Fz + Fx >= 0
-            G[5*j + 1, 3 * j + 2] = -self.mu
-            G[5*j + 2, 3 * j + 1] = 1    # mu Fz - Fy >= 0
-            G[5*j + 2, 3 * j + 2] = -self.mu
-            G[5*j + 3, 3 * j + 1] = -1     # mu Fz + Fy >= 0
-            G[5*j + 3, 3 * j + 2] = -self.mu
-            G[5*j + 4, 3 * j + 2] = -1     # Fz >= 0
-        A[:, -6:] = np.eye(6)
+        #     G[5*j + 0, 3 * j + 0] = 1    # mu Fz - Fx >= 0
+        #     G[5*j + 0, 3 * j + 2] = -self.mu
+        #     G[5*j + 1, 3 * j + 0] = -1     # mu Fz + Fx >= 0
+        #     G[5*j + 1, 3 * j + 2] = -self.mu
+        #     G[5*j + 2, 3 * j + 1] = 1    # mu Fz - Fy >= 0
+        #     G[5*j + 2, 3 * j + 2] = -self.mu
+        #     G[5*j + 3, 3 * j + 1] = -1     # mu Fz + Fy >= 0
+        #     G[5*j + 3, 3 * j + 2] = -self.mu
+        #     G[5*j + 4, 3 * j + 2] = -1     # Fz >= 0
+        # A[:, -6:] = np.eye(6)
 
-        b = tau_id[0:6] + w_com
+        # b = tau_id[0:6] + w_com
         # print(tau_id[2], fff[2::3])
 
-        solx = quadprog_solve_qp(Q, p, G, h, A, b)
-        qp_fff = solx[:3*N]
+        # solx = quadprog_solve_qp(Q, p, G, h, A, b)
+        # qp_fff = solx[:3*N]
         # print(tau_id[2], fff[2::3], qp_fff[2::3])
         # print(solx[3*N:])
 
