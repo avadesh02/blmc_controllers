@@ -12,7 +12,7 @@ mat = lambda a: np.matrix(a).reshape((-1, 1))
 
 class InverseDynamicsController():
 
-    def __init__(self, robot, eff_arr, real_robot = False):
+    def __init__(self, robot, eff_arr, pinModel = None, pinData = None, real_robot = False):
         """
         Input:
             robot : robot object returned by pinocchio wrapper
@@ -20,13 +20,29 @@ class InverseDynamicsController():
             real_robot : bool true if controller running on real robot
         """
 
-        if real_robot:
-            self.pin_robot = robot
+        # if real_robot:
+        #     self.pin_robot = robot
+        # else:
+        #     self.pin_robot = robot.pin_robot
+
+        if pinModel == None:
+            if real_robot:
+                self.pin_robot = robot
+            else:
+                self.pin_robot = robot.pin_robot
+
+            self.pinModel = self.pin_robot.model
+            self.pinData = self.pin_robot.data
+            self.nq = self.pin_robot.nq
+            self.nv = self.pin_robot.nv
+
         else:
-            self.pin_robot = robot.pin_robot
-        self.robot_mass = pin.computeTotalMass(self.pin_robot.model)
-        self.nq = self.pin_robot.nq
-        self.nv = self.pin_robot.nv
+            self.pinModel = pinModel
+            self.pinData = pinData
+            self.nq = pinModel.nq
+            self.nv = pinModel.nv
+
+        self.robot_mass = pin.computeTotalMass(self.pinModel)
         self.eff_arr = eff_arr
 
         self.wt = 1e-6
@@ -60,7 +76,7 @@ class InverseDynamicsController():
             v : joint velocity
             a : joint acceleration
         """
-        return np.reshape(pin.rnea(self.pin_robot.model, self.pin_robot.data, q, v, a), (self.nv,))
+        return np.reshape(pin.rnea(self.pinModel, self.pinData, q, v, a), (self.nv,))
 
     def compute_com_wrench(self, q, v, des_q, des_v):
         """
@@ -71,8 +87,8 @@ class InverseDynamicsController():
             des_q : desired joint positions
             des_v : desired joint velocities
         """
-        des_com = pin.centerOfMass(self.pin_robot.model, self.pin_robot.data, des_q, des_v)
-        com = pin.centerOfMass(self.pin_robot.model, self.pin_robot.data, q, v)
+        des_com = pin.centerOfMass(self.pinModel, self.pinData, des_q, des_v)
+        com = pin.centerOfMass(self.pinModel, self.pinData, q, v)
         vcom = np.reshape(np.array(v[0:3]), (3,))
         Ib = self.pin_robot.mass(q)[3:6, 3:6]
 
@@ -121,8 +137,8 @@ class InverseDynamicsController():
 
         # A = np.zeros((6, 3*N + 6))
         for j in range(N):
-            self.J_arr.append(pin.computeFrameJacobian(self.pin_robot.model, self.pin_robot.data, des_q,\
-                     self.pin_robot.model.getFrameId(self.eff_arr[j]), pin.LOCAL_WORLD_ALIGNED).T)
+            self.J_arr.append(pin.computeFrameJacobian(self.pinModel, self.pinData, des_q,\
+                     self.pinModel.getFrameId(self.eff_arr[j]), pin.LOCAL_WORLD_ALIGNED).T)
         #     # if cnt_array[j] == 0:
         #     if fff[3*j+2] < 0.01:
         #         continue
