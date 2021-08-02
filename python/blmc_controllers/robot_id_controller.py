@@ -4,8 +4,9 @@
 
 import numpy as np
 import pinocchio as pin
+import time
 
-from . qp_solver import quadprog_solve_qp
+#from . qp_solver import quadprog_solve_qp
 
 arr = lambda a: np.array(a).reshape(-1)
 mat = lambda a: np.matrix(a).reshape((-1, 1))
@@ -165,7 +166,8 @@ class InverseDynamicsController():
 
         tau_eff = np.zeros(self.nv)
         for j in range(N):
-            tau_eff += np.matmul(self.J_arr[j], np.hstack((fff[j*3:(j+1)*3], np.zeros(3))))
+            if fff[(j*3)+2] > 0:
+                tau_eff += np.matmul(self.J_arr[j], np.hstack((fff[j*3:(j+1)*3], np.zeros(3))))
 
         tau = (tau_id - tau_eff)[6:]
 
