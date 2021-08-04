@@ -10,7 +10,7 @@ import time
 
 class TSID_controller():
 
-    def __init__(self, urdf_path, model_path, eff_arr, q0, v0, mu=0.6):
+    def __init__(self, urdf_path, model_path, eff_arr, q0, v0, mu=0.6, fz_max=75):
         """
         Input:
             urdf_path: path to urdf of robot
@@ -22,13 +22,13 @@ class TSID_controller():
             mu: coefficient of friction at end-effectors
         """
         self.kp_com = 0.0001
-        self.kp_contact = 0.0
-        self.kp_posture = 50.0
+        self.kp_contact = 5.0
+        self.kp_posture = 10.0
         self.kp_orientation = 0.002
 
         self.w_com = 1.0
-        self.w_posture = 1.0
-        self.w_force = 5e-2
+        self.w_posture = 1e0
+        self.w_force = 1.0
         self.w_orientation = 1e-6
 
         self.contact_transition = 0.1
@@ -57,7 +57,7 @@ class TSID_controller():
         contactNormal = np.array([0., 0., 1.])
         self.contact_arr = len(self.eff_arr)*[None]
         for i, name in enumerate(self.eff_arr):
-            self.contact_arr[i] = tsid.ContactPoint(name, self.tsid_robot, name, contactNormal, self.mu, 0.01, 25)
+            self.contact_arr[i] = tsid.ContactPoint(name, self.tsid_robot, name, contactNormal, self.mu, 0.01, fz_max)
             self.contact_arr[i].setKp(self.kp_contact * np.ones(3))
             self.contact_arr[i].setKd(.03 * np.ones(3))
             cnt_ref = self.tsid_robot.framePosition(self.inv_dyn_data, self.tsid_robot.model().getFrameId(name))
@@ -66,10 +66,10 @@ class TSID_controller():
             self.invdyn.addRigidContact(self.contact_arr[i], self.w_force)
 
         # Add posture tasks (in the cost function)
-        # self.postureTask = tsid.TaskJointPosture("posture_task", self.tsid_robot)
-        # self.postureTask.setKp(self.kp_posture * np.ones(self.tsid_robot.nv-6))
-        # self.postureTask.setKd(2.0 * np.sqrt(self.kp_posture) * np.ones(3))
-        # self.invdyn.addMotionTask(self.postureTask, self.w_posture, 1, 0.0)
+        self.postureTask = tsid.TaskJointPosture("posture_task", self.tsid_robot)
+        self.postureTask.setKp(self.kp_posture * np.ones(self.tsid_robot.nv-6))
+        self.postureTask.setKd(.05 * np.ones(3))
+        self.invdyn.addMotionTask(self.postureTask, self.w_posture, 1, 0.0)
 
         #Add CoM task (in the cost function)
         # self.comTask = tsid.TaskComEquality("task-com", self.tsid_robot)
@@ -91,9 +91,9 @@ class TSID_controller():
         # self.trajCom = tsid.TrajectoryEuclidianConstant("trajectory_com", self.com_ref)
         # self.com_reference = self.trajCom.computeNext()
         #
-        # self.trajPosture = tsid.TrajectoryEuclidianConstant("trajectory_posture", q0[7:])
-        # self.traj_reference = self.trajPosture.computeNext()
-        # self.postureTask.setReference(self.traj_reference)
+        self.trajPosture = tsid.TrajectoryEuclidianConstant("trajectory_posture", q0[7:])
+        self.traj_reference = self.trajPosture.computeNext()
+        self.postureTask.setReference(self.traj_reference)
 
         # self.ori_ref = self.tsid_robot.position(self.inv_dyn_data, self.tsid_robot.model().getJointId("base_link"))
         # self.oriTraj = tsid.TrajectorySE3Constant("trajectory_orientation", self.ori_ref)
@@ -142,13 +142,13 @@ class TSID_controller():
         # self.com_reference.vel(des_v[0:3])
         # self.com_reference.acc(des_a[0:3])
         #
-        # self.traj_reference.pos(des_q[7:])
-        # self.traj_reference.vel(des_v[6:])
-        # self.traj_reference.acc(des_a[6:])
+        self.traj_reference.pos(des_q[7:])
+        self.traj_reference.vel(des_v[6:])
+        self.traj_reference.acc(des_a[6:])
 
         #Need to update end-effector references here
         # self.comTask.setReference(self.com_reference)
-        # self.postureTask.setReference(self.traj_reference)
+        self.postureTask.setReference(self.traj_reference)
         # self.oriTask.setReference(self.ori_reference)
         # self.postureTask.compute(t, q, v, self.tsid_robot.data())
 
@@ -178,5 +178,5 @@ class TSID_controller():
         tau = self.invdyn.getActuatorForces(sol)
         #tau_gain = -1.5*(np.subtract(q[7:], des_q[7:].T)) - 0.1*(np.subtract(v[6:], des_v[6:].T))
         #tau += tau_gain
-        #print("hi")
+
         return tau
