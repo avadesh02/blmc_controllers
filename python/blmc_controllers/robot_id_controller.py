@@ -4,26 +4,36 @@
 
 import numpy as np
 import pinocchio as pin
+import time
 
-from . qp_solver import quadprog_solve_qp
+#from . qp_solver import quadprog_solve_qp
 
 arr = lambda a: np.array(a).reshape(-1)
 mat = lambda a: np.matrix(a).reshape((-1, 1))
 
 class InverseDynamicsController():
 
-    def __init__(self, robot, eff_arr, real_robot = False):
+    def __init__(self, robot, eff_arr, pinModel = None, pinData = None, real_robot = False):
         """
         Input:
             robot : robot object returned by pinocchio wrapper
             eff_arr : end effector name arr
             real_robot : bool true if controller running on real robot
         """
+        if pinModel == None:
+            self.pin_robot = robot
+            self.pinModel = self.pin_robot.model
+            self.pinData = self.pin_robot.data
+            self.nq = self.pin_robot.nq
+            self.nv = self.pin_robot.nv
 
-        self.pin_robot = robot
-        self.robot_mass = pin.computeTotalMass(self.pin_robot.model)
-        self.nq = self.pin_robot.nq
-        self.nv = self.pin_robot.nv
+        else:
+            self.pinModel = pinModel
+            self.pinData = pinData
+            self.nq = pinModel.nq
+            self.nv = pinModel.nv
+
+        self.robot_mass = pin.computeTotalMass(self.pinModel)
         self.eff_arr = eff_arr
 
     def set_gains(self, kp, kd):
@@ -44,7 +54,7 @@ class InverseDynamicsController():
             v : joint velocity
             a : joint acceleration
         """
-        return np.reshape(pin.rnea(self.pin_robot.model, self.pin_robot.data, q, v, a), (self.nv,))
+        return np.reshape(pin.rnea(self.pinModel, self.pinData, q, v, a), (self.nv,))
 
     def id_joint_torques(self, q, dq, des_q, des_v, des_a, fff, cnt_array):
         """
@@ -61,19 +71,19 @@ class InverseDynamicsController():
         assert len(q) == self.nq
         self.J_arr = []
 
-        # w_com = self.compute_com_wrench(q, dq, des_q, des_v.copy())
         tau_id = self.compute_id_torques(des_q, des_v, des_a)
 
         ## creating QP matrices
         N = int(len(self.eff_arr))
 
         for j in range(N):
-            self.J_arr.append(pin.computeFrameJacobian(self.pin_robot.model, self.pin_robot.data, des_q,\
-                     self.pin_robot.model.getFrameId(self.eff_arr[j]), pin.LOCAL_WORLD_ALIGNED).T)
+            self.J_arr.append(pin.computeFrameJacobian(self.pinModel, self.pinData, des_q,\
+                     self.pinModel.getFrameId(self.eff_arr[j]), pin.LOCAL_WORLD_ALIGNED).T)
         
         tau_eff = np.zeros(self.nv)
         for j in range(N):
-            tau_eff += np.matmul(self.J_arr[j], np.hstack((fff[j*3:(j+1)*3], np.zeros(3))))
+            if fff[(j*3)+2] > 0:
+                tau_eff += np.matmul(self.J_arr[j], np.hstack((fff[j*3:(j+1)*3], np.zeros(3))))
 
         tau = (tau_id - tau_eff)[6:]
 
