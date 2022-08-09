@@ -41,7 +41,7 @@ class RobotImpedanceController(ImpedanceController):
 
             #Append to list of impedance controllers
             self.imp_ctrl_array.append(ImpedanceController(ctrls, \
-                                        self.robot.pin_robot, \
+                                        self.robot, \
                                         data_in["impedance_controllers"][ctrls]["frame_root_name"], \
                                         data_in["impedance_controllers"][ctrls]["frame_end_name"], \
                                         int(data_in["impedance_controllers"][ctrls]["start_column"])
