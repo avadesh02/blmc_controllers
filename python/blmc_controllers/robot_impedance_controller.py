@@ -9,6 +9,7 @@
 import numpy as np
 import yaml
 from . impedance_controller import ImpedanceController
+import pinocchio as pin
 
 class RobotImpedanceController(ImpedanceController):
 
@@ -47,7 +48,7 @@ class RobotImpedanceController(ImpedanceController):
                                         int(data_in["impedance_controllers"][ctrls]["start_column"])
                                         ))
                         
-    def return_joint_torques(self, q, dq, kp, kd, x_des, xd_des, f):
+    def return_joint_torques(self, q, dq, kp, kd, x_des, xd_des, f, grav_comp=True):
         '''
         Returns the joint torques at the current timestep
         Input:
@@ -58,6 +59,7 @@ class RobotImpedanceController(ImpedanceController):
             x_des : desired lenghts with respect to the root frame for each controller (3*number_of_springs)
             xd_des : desired velocities with respect to the root frame
             f : feed forward forces
+            grav_comp (boolean) : adds gravity compensation
         '''
         tau = np.zeros(len(self.imp_ctrl_array)*3)
         self.F_ = np.zeros(len(self.imp_ctrl_array)*3)
@@ -70,6 +72,10 @@ class RobotImpedanceController(ImpedanceController):
                                     xd_des[s],f[s])
             self.F_[s] = self.imp_ctrl_array[k].F_
         
+
+        if grav_comp:
+            tau += pin.rnea(self.robot.model, self.robot.data, q, dq, np.zeros(self.robot.model.nv))[6:]
+
         return tau
 
     def return_desired_forces(self):
